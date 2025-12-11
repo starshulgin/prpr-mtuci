@@ -241,6 +241,8 @@
             <div class="uploader">
                 <input type="file" name="file" accept="video/*">
             </div>
+            <input type="text" id="room" name="room" placeholder="Enter room (e.g., 101)" list="rooms-list" required style="padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:var(--text);">
+            <datalist id="rooms-list"></datalist>
             <button type="submit" id="btn">Analyze video</button>
         </form>
     </div>
@@ -262,16 +264,29 @@ const loader = document.getElementById("loader");
 const countEl = document.getElementById("count");
 const errorEl = document.getElementById("error");
 const btn = document.getElementById("btn");
+const roomInput = document.getElementById("room");
+const roomsList = document.getElementById("rooms-list");
+
+async function loadRooms() {
+    try {
+        let r = await fetch("http://localhost:8000/rooms");
+        let data = await r.json();
+        roomsList.innerHTML = data.map(x => `<option value="${x.name}"></option>`).join("");
+    } catch (e) {
+        // ignore
+    }
+}
 
 async function loadHistory() {
     try {
         let r = await fetch("http://localhost:8000/history");
         let data = await r.json();
 
-        let table = "<tr><th>ID</th><th>File</th><th>People</th><th>Time</th></tr>";
+        let table = "<tr><th>ID</th><th>Room</th><th>File</th><th>People</th><th>Time</th></tr>";
         data.forEach(x => {
             table += `<tr>
                 <td>${x.id}</td>
+                <td>${x.room || "—"}</td>
                 <td>${x.filename}</td>
                 <td>${x.people_count}</td>
                 <td>${new Date(x.timestamp).toLocaleString()}</td>
@@ -291,6 +306,12 @@ document.getElementById("form").onsubmit = async (e) => {
     btn.disabled = true;
 
     let fd = new FormData(e.target);
+    if (!fd.get("room") || !fd.get("room").trim()) {
+        errorEl.textContent = "Room is required";
+        loader.classList.remove("show");
+        btn.disabled = false;
+        return;
+    }
 
     try {
         let r = await fetch("http://localhost:8000/analyze", {
@@ -310,6 +331,7 @@ document.getElementById("form").onsubmit = async (e) => {
         countEl.classList.add("bump");
         setTimeout(() => countEl.classList.remove("bump"), 400);
         loadHistory();
+        loadRooms();
     } catch (err) {
         errorEl.textContent = "Network error";
         countEl.textContent = "–";
@@ -320,6 +342,7 @@ document.getElementById("form").onsubmit = async (e) => {
 };
 
 loadHistory();
+loadRooms();
 </script>
 
 </body>
